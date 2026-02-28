@@ -22,6 +22,8 @@ const uint16_t MQTT_PORT  = 1883;                 // 1883 for MQTT, 8883 typical
 const char* MQTT_USERNAME = "YOUR_MQTT_USERNAME";
 const char* MQTT_PASSWORD = "YOUR_MQTT_PASSWORD";
 
+const char* MQTT_TOPIC    = "ArduinoNano/demo/counter";
+
 // ----------------------------------------
 
 WiFiClient wifiClient;
