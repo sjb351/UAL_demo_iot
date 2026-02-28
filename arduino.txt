@@ -1,0 +1,137 @@
+
+
+/*
+  Raspberry Pi Pico W - WiFi + MQTT publish counter every 5 seconds
+
+  Board core: "Raspberry Pi Pico/RP2040" by Earle Philhower
+  Library: PubSubClient by Nick O'Leary
+*/
+
+#include <WiFiNINA.h>
+#include <PubSubClient.h>
+
+// --------- CONFIG (EDIT THESE) ----------
+
+const char* WIFI_SSID     = "YOUR_WIFI_SSID";
+const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+
+// MQTT broker details
+const char* MQTT_HOST     = "broker.example.com"; // e.g. "test.mosquitto.org" (no auth) or your cloud broker
+const uint16_t MQTT_PORT  = 1883;                 // 1883 for MQTT, 8883 typically for MQTT over TLS (see note below)
+
+const char* MQTT_USERNAME = "YOUR_MQTT_USERNAME";
+const char* MQTT_PASSWORD = "YOUR_MQTT_PASSWORD";
+
+// ----------------------------------------
+
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
+
+unsigned long lastPublishMs = 0;
+uint32_t counterValue = 50;
+
+// Optional: give your device a unique client ID (important if multiple devices connect)
+String makeClientId() {
+  // Pico SDK provides a unique ID you can read, but simplest is random+millis.
+  // Good enough for demos; for production, use a stable unique ID.
+  return "picoW-" + String((uint32_t)millis(), HEX);
+}
+
+void connectWiFi() {
+  Serial.print("Connecting to WiFi: ");
+  Serial.println(WIFI_SSID);
+
+  // Optional: check module presence
+  if (WiFi.status() == WL_NO_MODULE) {
+    Serial.println("ERROR: WiFi module not detected. Check firmware / board selection.");
+    while (true) { delay(1000); }
+  }
+
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    if (millis() - start > 20000) {
+      Serial.println("\nWiFi connect timeout. Retrying...");
+      start = millis();
+      WiFi.disconnect();
+      WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    }
+  }
+
+  Serial.println("\nWiFi connected!");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  Serial.print("RSSI: ");
+  Serial.println(WiFi.RSSI());
+}
+
+void connectMQTT() {
+  mqttClient.setServer(MQTT_HOST, MQTT_PORT);
+
+  while (!mqttClient.connected()) {
+    String clientId = makeClientId();
+    Serial.print("Connecting to MQTT as ");
+    Serial.print(clientId);
+    Serial.print(" ... ");
+
+    // Connect with username & password
+    bool ok = mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD);
+
+    if (ok) {
+      Serial.println("connected!");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(mqttClient.state());
+      Serial.println(" retrying in 3s");
+      delay(3000);
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  connectWiFi();
+  connectMQTT();
+}
+
+void loop() {
+  // Keep connections alive
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi dropped. Reconnecting...");
+    connectWiFi();
+  }
+
+  if (!mqttClient.connected()) {
+    Serial.println("MQTT dropped. Reconnecting...");
+    connectMQTT();
+  }
+
+  mqttClient.loop();
+
+  // Publish every 5 seconds
+  unsigned long now = millis();
+  if (now - lastPublishMs >= 3000) {
+    // set value to random from 20 to 90
+    counterValue = random(20, 90);
+    lastPublishMs = now;
+
+    char payload[32];
+    snprintf(payload, sizeof(payload), "%lu", (unsigned long)counterValue);
+
+    bool published = mqttClient.publish(MQTT_TOPIC, payload, true /*retained*/);
+
+    Serial.print("Publish to ");
+    Serial.print(MQTT_TOPIC);
+    Serial.print(": ");
+    Serial.print(payload);
+    Serial.print(" -> ");
+    Serial.println(published ? "OK" : "FAILED");
+
+    
+  }
+}

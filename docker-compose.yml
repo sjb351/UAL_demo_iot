@@ -1,0 +1,67 @@
+services:
+  influxdb:
+    image: influxdb:2.7
+    command: "./entrypoint.sh --reporting-disabled"
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    volumes:
+      - ./influxdb2_data:/var/lib/influxdb2
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: admin1000
+      DOCKER_INFLUXDB_INIT_ORG: my-org
+      DOCKER_INFLUXDB_INIT_BUCKET: iot
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: supersecretadmintoken1000
+    networks:
+      - iot_net
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    depends_on:
+      - influxdb
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana_data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    networks:
+      - iot_net
+
+  nodered:
+    image: nodered/node-red:latest
+    restart: unless-stopped
+    depends_on:
+      - influxdb
+    ports:
+      - "1880:1880"
+    volumes:
+      - ./nodered_data:/data
+    networks:
+      - iot_net
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"   # MQTT
+      - "9001:9001"   # WebSockets (optional)
+    volumes:
+      - mosquitto_config:/mosquitto/config
+    networks:
+      - iot_net
+
+volumes:
+  influxdb2_data:
+  grafana_data:
+  nodered_data:
+  mosquitto_config:
+
+networks:
+  iot_net:
+    driver: bridge
