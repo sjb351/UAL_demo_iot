@@ -44,17 +44,17 @@ services:
     networks:
       - iot_net
 
-  mosquitto:
-    image: eclipse-mosquitto:2
-    container_name: mosquitto
-    restart: unless-stopped
-    ports:
-      - "1883:1883"   # MQTT
-      - "9001:9001"   # WebSockets (optional)
-    volumes:
-      - mosquitto_config:/mosquitto/config
-    networks:
-      - iot_net
+  # mosquitto:
+  #   image: eclipse-mosquitto:2
+  #   container_name: mosquitto
+  #   restart: unless-stopped
+  #   ports:
+  #     - "1883:1883"   # MQTT
+  #     - "9001:9001"   # WebSockets (optional)
+  #   volumes:
+  #     - mosquitto_config:/mosquitto/config
+  #   networks:
+  #     - iot_net
 
 volumes:
   influxdb2_data:
